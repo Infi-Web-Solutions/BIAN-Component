@@ -2,7 +2,6 @@
     <div class="ww-input-basic" :class="{ editing: isEditing }" v-bind="rootBinding">
         <input
             ref="input"
-            :key="componentKey"
             :id="$attrs.id"
             :value="formattedValue"
             class="ww-input-basic__input"
@@ -125,7 +124,6 @@ export default {
             isDebouncing: false,
             wasAccepted: false,
             wasCompleted: false,
-            componentKey: 0,
         };
     },
     computed: {
@@ -405,67 +403,57 @@ export default {
     },
     methods: {
         async initIMask() {
-            if (this.mask) this.mask.destroy();
-            this.componentKey++;
-            await nextTick();
-
-            if (!this.input) {
-                return;
+            // Destroy existing mask cleanly
+            if (this.mask) {
+                this.mask.destroy();
+                this.mask = null;
             }
 
-            this.mask = IMask(this.input, this.maskOptions);
+            await nextTick();
 
-            // Override IMask's updateValue method to ensure the formatted value
-            // is always displayed in the input element
-            const originalUpdateValue = this.mask.updateValue.bind(this.mask);
-            this.mask.updateValue = () => {
-                originalUpdateValue();
+            const el = this.$refs.input;
 
-                // Make sure input value is synchronized with mask.value
-                if (this.input && this.input.value !== this.mask.value) {
-                    this.input.value = this.mask.value;
-                }
-            };
+            if (!el) return;
 
-            this.mask.on('accept', event => this.handleDebounce(event, 'accept'));
-            this.mask.on('complete', event => this.handleDebounce(event, 'complete'));
+            // Create new mask on existing input
+            this.mask = IMask(el, this.maskOptions);
 
-            // Set initial mask value if value exists
-            if (this.value !== undefined && this.value !== null) {
-                // Convert to string to ensure IMask receives the correct type
-                const stringValue = String(this.value);
-                this.mask.value = stringValue;
+            this.mask.on('accept', event => {
+                this.handleDebounce(event, 'accept');
+            });
 
-                // Force sync with input element
-                if (this.input) {
-                    this.input.value = this.mask.value;
-                }
-                
-                // Update masked and unmasked values
-                this.setUnmaskedValue(this.mask.unmaskedValue);
-            } else {
-                // Handle null/undefined values
-                this.mask.value = '';
-                if (this.input) {
-                    this.input.value = '';
-                }
-                this.setUnmaskedValue('');
+            this.mask.on('complete', event => {
+                this.handleDebounce(event, 'complete');
+            });
+
+            // Initialize value
+            const value =
+                this.value !== undefined &&
+                this.value !== null
+                    ? String(this.value)
+                    : '';
+
+            this.mask.value = value;
+
+            this.setUnmaskedValue(this.mask.unmaskedValue);
+
+            // Sync visible input
+            if (this.input) {
+                this.input.value = this.mask.value;
             }
         },
         onInputChange(event) {
-        this.wasAccepted = false;
-        this.wasCompleted = false;
-        
-        if (this.mask) {
-        const value = this.mask.value;
-        
-        this.setValue(value);
-        this.setUnmaskedValue(this.mask.unmaskedValue);
-        }
-        
-        setTimeout(() => {
-        this.checkForRejection(event);
-        }, 100);
+            this.wasAccepted = false;
+            this.wasCompleted = false;
+
+            if (!this.mask) return;
+
+            this.setValue(this.mask.value);
+            this.setUnmaskedValue(this.mask.unmaskedValue);
+
+            setTimeout(() => {
+                this.checkForRejection(event);
+            }, 50);
         },
         // onInputChange(event) {
         //     this.wasAccepted = false;
@@ -625,19 +613,24 @@ export default {
 
         onFocus() {
             this.isFocused = true;
-            this.$emit('trigger-event', { name: 'focus', event: null });
+
+            this.$emit('trigger-event', {
+                name: 'focus',
+                event: null,
+            });
+
             this.$emit('add-state', 'focus');
 
-            // Ensure mask is correctly applied on focus
-            if (this.mask && this.value) {
-                this.$nextTick(() => {
-                    // Make sure the formatted value is displayed
-                    const displayValue = this.mask.value;
-                    if (displayValue !== this.input.value) {
-                        this.input.value = displayValue;
-                    }
-                });
-            }
+            // Preserve cursor and display
+            this.$nextTick(() => {
+                if (this.mask && this.input) {
+                    this.input.value = this.mask.value;
+
+                    const pos = this.input.value.length;
+
+                    this.input.setSelectionRange(pos, pos);
+                }
+            });
         },
 
         onBlur() {
