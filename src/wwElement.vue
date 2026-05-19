@@ -292,7 +292,7 @@ export default {
         isEditing() {
             this.initIMask();
         },
-        value(newValue, oldValue) {
+        value(newValue) {
             if (this.mask && newValue !== undefined && newValue !== null) {
                 // When value changes, ensure mask is properly applied
                 this.$nextTick(() => {
@@ -447,9 +447,6 @@ export default {
             this.wasCompleted = false;
 
             if (!this.mask) return;
-
-            this.setValue(this.mask.value);
-            this.setUnmaskedValue(this.mask.unmaskedValue);
 
             setTimeout(() => {
                 this.checkForRejection(event);
