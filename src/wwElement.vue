@@ -244,29 +244,28 @@ export default {
         },
         maskOptions() {
             const placeholder = `${this.content.placeholderChar}`;
+
             return {
-            mask: this.content.pattern,
-            
-            overwrite: false,
-            skipInvalid: true,
-            lazy: true,
-            
-            ...(this.content.placeholderVisible && placeholder.length
-            ? { placeholderChar: placeholder }
-            : {}),
-            
-            definitions: {
-            a: /[A-Za-z]/,
-            },
-            
-            prepare: (str) => str.toUpperCase(),
+                mask: this.content.pattern,
+
+                overwrite: false,
+                skipInvalid: true,
+
+                // Keep showing ___ ___ ___
+                lazy: false,
+
+                ...(this.content.placeholderVisible && placeholder.length
+                    ? {
+                        placeholderChar: placeholder,
+                    }
+                    : {}),
+
+                definitions: {
+                    a: /[A-Za-z]/,
+                },
+
+                prepare: str => str.toUpperCase(),
             };
-            // return {
-                // mask: this.content.pattern,
-                // ...(this.content.placeholderVisible && placeholder.length
-                //     ? { placeholderChar: placeholder, lazy: false }
-                //     : {}),
-            // };  -->
         },
         inputBinding() {
             let attrs = (this.state?.attributes || []).reduce((acc, attr) => {
@@ -646,18 +645,19 @@ export default {
             this.$emit('remove-state', 'focus');
 
             if (this.mask && this.input) {
-                const unmasked = this.mask.unmaskedValue || '';
+
+                const rawValue = this.mask.unmaskedValue || '';
 
                 // Required validation
-                if (this.content.required && !unmasked.trim()) {
+                if (this.content.required && rawValue.trim() === '') {
                     this.input.setCustomValidity('This field is required');
                 }
-                // Incomplete mask validation
+                // Partial mask validation
                 else if (
                     this.content.required &&
                     !this.mask.masked.isComplete
                 ) {
-                    this.input.setCustomValidity('Please complete this field');
+                    this.input.setCustomValidity('Please complete the field');
                 }
                 else {
                     this.input.setCustomValidity('');
@@ -672,17 +672,15 @@ export default {
                     this.mask.masked.isComplete
                 ) {
                     this.setValue(inputValue);
-                    this.setUnmaskedValue(this.mask.unmaskedValue);
+                    this.setUnmaskedValue(rawValue);
 
                     this.$emit('trigger-event', {
                         name: 'change',
-                        event: {
-                            value: inputValue,
-                        },
+                        event: { value: inputValue },
                     });
                 }
             }
-        },
+        }
 
         // /!\ Use externally
         focusInput() {
