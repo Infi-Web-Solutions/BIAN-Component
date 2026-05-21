@@ -249,7 +249,7 @@ export default {
             
             overwrite: false,
             skipInvalid: true,
-            lazy: false,
+            lazy: true,
             
             ...(this.content.placeholderVisible && placeholder.length
             ? { placeholderChar: placeholder }
@@ -632,20 +632,48 @@ export default {
 
         onBlur() {
             this.isFocused = false;
-            this.$emit('trigger-event', { name: 'blur', event: null });
+
+            this.$emit('trigger-event', {
+                name: 'blur',
+                event: null,
+            });
+
             this.$emit('remove-state', 'focus');
 
-            // If typing created a new value in the input, update component value to match
             if (this.mask && this.input) {
-                const inputValue = this.input.value;
+                const unmasked = this.mask.unmaskedValue || '';
 
-                // Update internal value to match what the user typed
-                if (inputValue !== this.value && this.mask.masked.isComplete) {
+                // Required validation
+                if (this.content.required && !unmasked.trim()) {
+                    this.input.setCustomValidity('This field is required');
+                }
+                // Incomplete mask validation
+                else if (
+                    this.content.required &&
+                    !this.mask.masked.isComplete
+                ) {
+                    this.input.setCustomValidity('Please complete this field');
+                }
+                else {
+                    this.input.setCustomValidity('');
+                }
+
+                this.input.reportValidity();
+
+                const inputValue = this.mask.value;
+
+                if (
+                    inputValue !== this.value &&
+                    this.mask.masked.isComplete
+                ) {
                     this.setValue(inputValue);
                     this.setUnmaskedValue(this.mask.unmaskedValue);
+
                     this.$emit('trigger-event', {
                         name: 'change',
-                        event: { value: inputValue },
+                        event: {
+                            value: inputValue,
+                        },
                     });
                 }
             }
