@@ -611,6 +611,11 @@ export default {
         onFocus() {
             this.isFocused = true;
 
+            // Hide previous validation while editing
+            if (this.input) {
+                this.input.setCustomValidity('');
+            }
+
             this.$emit('trigger-event', {
                 name: 'focus',
                 event: null,
