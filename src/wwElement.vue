@@ -10,7 +10,6 @@
             type="text"
             :name="wwElementState.name"
             :readonly="content.readonly"
-            :required="content.required"
             :placeholder="isAdvancedPlaceholder ? '' : wwLang.getText(content.placeholder)"
             :style="style"
             @blur="onBlur"
@@ -18,6 +17,14 @@
             @input="onInputChange"
             @mouseenter="onMouseEnter"
             @mouseleave="onMouseLeave"
+        />
+        <input
+            ref="validationInput"
+            class="ww-input-basic__validation"
+            type="text"
+            aria-hidden="true"
+            tabindex="-1"
+            :required="content.required"
         />
         <div
             v-if="isAdvancedPlaceholder"
@@ -89,6 +96,7 @@ export default {
         });
 
         const input = ref(null);
+        const validationInput = ref(null);
 
         const state = inject('componentState', {});
 
@@ -107,7 +115,7 @@ export default {
             { elementState: props.wwElementState, emit, sidepanelFormPath: 'form', setValue }
         );
 
-        return { variableValue, setValue, setUnmaskedValue, type, input, state, createElement };
+        return { variableValue, setValue, setUnmaskedValue, type, input, validationInput, state, createElement };
     },
     data() {
         return {
@@ -303,6 +311,7 @@ export default {
                     if (this.input && this.input.value !== this.mask.value) {
                         this.input.value = this.mask.value;
                     }
+                    this.syncValidationInput();
                 });
             } else if (this.mask) {
                 // Handle null/undefined values
@@ -310,6 +319,7 @@ export default {
                 if (this.input) {
                     this.input.value = '';
                 }
+                this.syncValidationInput();
             }
         },
         'content.value'(newValue) {
@@ -330,6 +340,7 @@ export default {
                     if (this.input && this.input.value !== this.mask.value) {
                         this.input.value = this.mask.value;
                     }
+                    this.syncValidationInput();
                 });
             }
             this.$emit('trigger-event', { name: 'initValueChange', event: { value: newValue } });
@@ -440,10 +451,14 @@ export default {
             if (this.input) {
                 this.input.value = this.mask.value;
             }
+
+            this.syncValidationInput();
         },
         onInputChange(event) {
             this.wasAccepted = false;
             this.wasCompleted = false;
+
+            this.syncValidationInput();
 
             if (!this.mask) return;
 
@@ -486,6 +501,7 @@ export default {
             const newValue = this.mask ? this.mask.value : (event?.target?.value || '');
             this.setValue(newValue);
             this.setUnmaskedValue(this.mask.unmaskedValue);
+            this.syncValidationInput();
 
             if (type === 'accept') {
                 this.wasAccepted = true;
@@ -610,11 +626,6 @@ export default {
         onFocus() {
             this.isFocused = true;
 
-            // Hide previous validation while editing
-            if (this.input) {
-                this.input.setCustomValidity('');
-            }
-
             this.$emit('trigger-event', {
                 name: 'focus',
                 event: null,
@@ -643,33 +654,13 @@ export default {
 
             this.$emit('remove-state', 'focus');
 
-            if (this.mask && this.input) {
+            if (!this.input) return;
 
+            if (this.mask) {
                 const rawValue = this.mask.unmaskedValue || '';
-
-                // Required validation
-                if (this.content.required && rawValue.trim() === '') {
-                    this.input.setCustomValidity('This field is required');
-                }
-                // Partial mask validation
-                else if (
-                    this.content.required &&
-                    !this.mask.masked.isComplete
-                ) {
-                    this.input.setCustomValidity('Please complete the field');
-                }
-                else {
-                    this.input.setCustomValidity('');
-                }
-
-                this.input.reportValidity();
-
                 const inputValue = this.mask.value;
 
-                if (
-                    inputValue !== this.value &&
-                    this.mask.masked.isComplete
-                ) {
+                if (inputValue !== this.value && this.mask.masked.isComplete) {
                     this.setValue(inputValue);
                     this.setUnmaskedValue(rawValue);
 
@@ -686,6 +677,11 @@ export default {
             if (this.isReadonly) return;
             const el = this.$refs.input;
             if (el) el.focus();
+        },
+        syncValidationInput() {
+            if (!this.validationInput) return;
+
+            this.validationInput.value = this.mask ? this.mask.unmaskedValue || '' : this.value || '';
         },
     },
 };
@@ -736,6 +732,19 @@ export default {
             letter-spacing: inherit;
             word-spacing: inherit;
         }
+    }
+
+    &__validation {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+        border: 0;
+        box-sizing: border-box;
+        opacity: 0;
+        pointer-events: none;
     }
 
     &__placeholder {
