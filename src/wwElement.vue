@@ -679,7 +679,7 @@ export default {
                     });
                 }
             }
-        }
+        },
 
         // /!\ Use externally
         focusInput() {
